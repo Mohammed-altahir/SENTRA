@@ -1,5 +1,7 @@
+dnspython
 fastapi
+python-nmap
 reportlab
 sslyze
-wapiti
-python-nmap
+uvicorn
+wapiti3
