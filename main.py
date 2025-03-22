@@ -1,7 +1,8 @@
-from fastapi import FastAPI, BackgroundTasks, Request
+from fastapi import FastAPI, BackgroundTasks, Form
 from fastapi.responses import HTMLResponse,FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from starlette.requests import Request
 import asyncio
 import subprocess
 
@@ -11,7 +12,7 @@ import dns.resolver
 import csv
 from io import StringIO
 
-import report_generator as repoGen
+from app import report_generator as repoGen
 
 
 app = FastAPI()
@@ -71,11 +72,7 @@ async def run_dns_scan(target):
 async def perform_scan(target,device_name,device_type):
     results = {}
 
-    with open("results.csv","r") as f:
-        data = f.read()
-    csv_file = StringIO(data)
-    csv_reader = csv.DictReader(csv_file, delimiter=';')
-    results["Nmap"] = [row for row in csv_reader]
+    results["Nmap"] = await run_nmap(target)
     # results["Nmap"] = nmap_results
 
     for record in results["Nmap"]:
@@ -95,46 +92,48 @@ async def perform_scan(target,device_name,device_type):
 
     repoGen.main(results,device_name,device_type,target)
     print(f"Scan complete for {target}")
-    return FileResponse(path=repoGen.FILENAME, filename=repoGen.FILENAME, media_type='application/pdf')
 
     # return FileResponse(path=repoGen.FILENAME, filename=repoGen.FILENAME, media_type='application/pdf')
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "title": "FastAPI Example"})
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.get("/service", response_class=HTMLResponse)
 async def service(request: Request):
-    return templates.TemplateResponse("service.html", {"request": request, "title": "FastAPI Example"})
+    return templates.TemplateResponse("service.html", {"request": request})
 
 
 @app.get("/coming-soon", response_class=HTMLResponse)
 async def coming_soon(request: Request):
-    return templates.TemplateResponse("coming-soon.html", {"request": request, "title": "FastAPI Example"})
+    return templates.TemplateResponse("coming-soon.html", {"request": request})
 
 @app.get("/register", response_class=HTMLResponse)
 async def register(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request, "title": "FastAPI Example"})
+    return templates.TemplateResponse("register.html", {"request": request})
 
 
-@app.get("/manual-Connection", response_class=HTMLResponse)
+@app.get("/manual-connection", response_class=HTMLResponse)
 async def manual_connection(request: Request):
-    return templates.TemplateResponse("manual-connection.html", {"request": request, "title": "FastAPI Example"})
+    return templates.TemplateResponse("manual-connection.html", {"request": request})
 
 @app.get("/support-team", response_class=HTMLResponse)
 async def support(request: Request):
-    return templates.TemplateResponse("support-team.html", {"request": request, "title": "FastAPI Example"})
+    return templates.TemplateResponse("support-team.html", {"request": request})
 
 
 @app.get("/welcome", response_class=HTMLResponse)
 async def welcome(request: Request):
-    return templates.TemplateResponse("welcome.html", {"request": request, "title": "FastAPI Example"})
+    return templates.TemplateResponse("welcome.html", {"request": request})
+
+@app.post("/download")
+def download():
+    return FileResponse(path=repoGen.FILENAME, filename=repoGen.FILENAME, media_type='application/pdf')
 
 
 # API endpoint for scanning (Non-blocking)
 @app.post("/scan")
-async def scan_target(device_name:str, device_type:str, target: str, background_tasks: BackgroundTasks):
-    background_tasks.add_task(perform_scan, target,device_name,device_type)
-    return {"message": "Scan started in the background", "target": target}
-
+async def scan_target(background_tasks: BackgroundTasks, device_name:str = Form(...), device_type:str = Form(...), ip_address: str = Form(...)):
+    background_tasks.add_task(perform_scan, ip_address,device_name,device_type)
+    return {"message": "Scan started in the background", "ip_address": ip_address}
 
